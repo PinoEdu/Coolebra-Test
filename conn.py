@@ -1,34 +1,55 @@
 import psycopg2
-from functions import poblar, create_tables, uniqueQuery
+from functions import insertValues, createTables, insertQuery
 
 def firstQuery(cur):
     cur.execute("""
-        WITH PreciosRebajados AS (
-            SELECT
-                pr.normal_price - COALESCE(pr.discount_price, 0) AS precio_rebajado,
-                p.ean,
-                p.sku,
-                m.name as market,
-                ROW_NUMBER() OVER (PARTITION BY p.product_id ORDER BY pr.create_date DESC, pr.normal_price - COALESCE(pr.discount_price, 0) ASC) AS row_number
-            FROM Product p
-            JOIN Price pr ON p.product_id = pr.product_id
-            JOIN Market m ON pr.market_id = m.market_id
-            WHERE pr.active = true
-        )
-
         SELECT
-            precio_rebajado,
-            ean,
-            sku,
-            market
-        FROM PreciosRebajados
-        WHERE row_number = 1;
+            p.name,
+            pr.normal_price,
+            p.ean,
+            p.sku,
+            m.name AS market
+        FROM Product p
+        JOIN Price pr ON p.product_id = pr.product_id
+        JOIN Market m ON pr.market_id = m.market_id
+        WHERE pr.active = TRUE
+        ORDER BY pr.create_date DESC, pr.normal_price - COALESCE(pr.discount_price, 0) ASC
     """)
 
     rows = cur.fetchall()
+    
+    return rows
 
-    for row in rows:
-        print(row)
+
+def agrupar(datos_productos):
+    productos_agrupados = {}
+
+    for nombre, valor_activo, ean, sku, mercado in datos_productos:
+        if ean not in productos_agrupados:
+            productos_agrupados[ean] = {
+                'nombre_producto' : nombre,
+                'datos_query' : [(nombre, valor_activo, ean, sku, mercado)],
+                'cantidad_markets_diferentes' : sum(1 for row in datos_productos if ean == row[2]),
+                'rango_precios' : (valor_activo, valor_activo)
+            }
+        else:
+            productos_agrupados[ean]['datos_query'].append((nombre, valor_activo, ean, sku, mercado))
+            productos_agrupados[ean]['rango_precios'] = (
+                min(valor_activo,productos_agrupados[ean]['rango_precios'][0]),
+                max(valor_activo,productos_agrupados[ean]['rango_precios'][1])
+                )
+
+    resultados_finales = []
+    for ean, detalles in productos_agrupados.items():
+        resultados_finales.append({
+            'Ean': ean,
+            'nombre_producto' : detalles['nombre_producto'],
+            'datos_query' : detalles['datos_query'],
+            'cantidad_markets' : detalles['cantidad_markets_diferentes'],
+            'rango_precios' : detalles['rango_precios'][1] - detalles['rango_precios'][0]
+        })
+
+    return resultados_finales
 
 try:
     conn = psycopg2.connect(
@@ -42,13 +63,14 @@ try:
 
     cur = conn.cursor()
     
-    create_tables(conn, cur) # Crea las tablas en caso de que no se hayan creado
+    createTables(conn, cur) # Crea las tablas en caso de que no se hayan creado
 
     ###
-    #poblar(conn, cur)  # Poblamos las tablas creadas previamente solo una vez (para eso lo descomentamos)
+    #insertValues(conn, cur)  # Poblamos las tablas creadas previamente solo una vez (para eso lo descomentamos)
     ###
 
-    firstQuery(cur)    # Pregunta 1
+    firstQuestion = firstQuery(cur)     # Pregunta 1
+    agrupar(firstQuestion)              # Pregunta 3.a
 
     cur.close()
 

@@ -1,4 +1,4 @@
-def create_tables(conn, cur):
+def createTables(conn, cur):
     cur.execute("""
         CREATE TABLE IF NOT EXISTS Product (
             product_id SERIAL PRIMARY KEY,
@@ -29,7 +29,7 @@ def create_tables(conn, cur):
 
     conn.commit()
 
-def poblar(conn, cur):
+def insertValues(conn, cur):
     cur.execute("""
         INSERT INTO Product (name, sku, ean) VALUES
             ('Producto A', 'SKU001', 'EAN001'),
@@ -68,13 +68,14 @@ def poblar(conn, cur):
         INSERT INTO Price (product_id, market_id, normal_price, discount_price, active, create_date) VALUES
             (3, 2, 50, 45, true, '2023-01-01');
     """)
+
+    cur.execute("""
+            INSERT INTO Price (product_id, market_id, normal_price, discount_price, active, create_date) VALUES
+            (3, 3, 50, 49, true, '2023-02-01');
+        """)
     
     conn.commit()
 
-def uniqueQuery(conn, cur):
-    cur.execute("""
-        INSERT INTO Price (product_id, market_id, normal_price, discount_price, active, create_date) VALUES
-        (3, 3, 50, 49, true, '2023-02-01');
-    """)
-
+def insertQuery(conn, cur, query): # Funcion auxiliar para solo insertar valores
+    cur.execute(query)
     conn.commit()
