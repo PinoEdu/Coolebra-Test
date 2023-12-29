@@ -1,16 +1,14 @@
 import psycopg2
 from functions import poblar, create_tables, uniqueQuery
 
-def query(cur):
+def firstQuery(cur):
     cur.execute("""
         WITH PreciosRebajados AS (
             SELECT
+                pr.normal_price - COALESCE(pr.discount_price, 0) AS precio_rebajado,
                 p.ean,
                 p.sku,
                 m.name as market,
-                pr.normal_price - COALESCE(pr.discount_price, 0) AS precio_rebajado,
-                pr.active,
-                pr.create_date,
                 ROW_NUMBER() OVER (PARTITION BY p.product_id ORDER BY pr.create_date DESC, pr.normal_price - COALESCE(pr.discount_price, 0) ASC) AS row_number
             FROM Product p
             JOIN Price pr ON p.product_id = pr.product_id
@@ -50,7 +48,7 @@ try:
     #poblar(conn, cur)  # Poblamos las tablas creadas previamente solo una vez (para eso lo descomentamos)
     ###
 
-    query(conn, cur)    # Pregunta 1
+    firstQuery(cur)    # Pregunta 1
 
     cur.close()
 
